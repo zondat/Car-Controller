@@ -1,5 +1,44 @@
-#include <VirtualWire.h>
+/*
 
+Demonstrates simple RX and TX operation.
+Any of the Basic_TX examples can be used as a transmitter.
+Please read through 'NRFLite.h' for a description of all the methods available in the library.
+
+Radio    Arduino
+CE    -> 9
+CSN   -> 10 (Hardware SPI SS)
+MOSI  -> 11 (Hardware SPI MOSI)
+MISO  -> 12 (Hardware SPI MISO)
+SCK   -> 13 (Hardware SPI SCK)
+IRQ   -> No connection
+VCC   -> No more than 3.6 volts
+GND   -> GND
+
+*/
+
+#include "SPI.h"
+#include "NRFLite.h"
+
+// nRF24L01 Settings
+const static uint8_t RADIO_ID = 0;       // Our radio's id.  The transmitter will send to this id.
+const static uint8_t PIN_RADIO_CE = 9;
+const static uint8_t PIN_RADIO_CSN = 10;
+const static uint8_t PIN_SERVO = 5;
+const static uint8_t PIN_ESC= 6;
+
+NRFLite _radio;
+
+// Message definition
+struct RadioPacket // Any packet up to 32 bytes can be sent.
+{
+    uint8_t vx;
+    uint8_t vy;
+};
+
+
+RadioPacket _radioData;
+
+// L298 Settings
 #define INDICATOR_UP A2
 #define INDICATOR_DOWN A3
 #define INDICATOR_LEFT A1
@@ -10,9 +49,7 @@
 #define IN3 6
 #define IN4 7
 
-#define DATA_PIN 2
-
-#define SIGNIFICANT_MAGNITUDE 18
+#define SIGNIFICANT_MAGNITUDE 20
 
 #define MAX_SPEED 255 //từ 0-255
 #define MIN_SPEED 0
@@ -22,10 +59,6 @@
 #define MOTOR_RIGHT 2
 #define FORWARD 1
 #define BACKWARD 0
-struct Packet {
-  int vx;
-  int vy;
-};
 
 void rotateMotor(int id, bool dir) {
   if (id == MOTOR_RIGHT) {
@@ -99,72 +132,57 @@ void stop() {
   digitalWrite(IN4, LOW);
 }
 
-/******************************/
-#define MESS_LEN sizeof(Packet)
-byte msg[MESS_LEN];// biến lưu dữ liệu nhận được
-byte msgLen = MESS_LEN;
 
 void setup()
 {
-  // Serial.begin(9600);
-  // Serial.println("Rx ready ...");
+    Serial.begin(115200);
+    while (!_radio.init(RADIO_ID, PIN_RADIO_CE, PIN_RADIO_CSN))
+    {
+        Serial.println("Cannot communicate with radio");
+        delay(1000);
+    }
 
-  pinMode(INDICATOR_UP, OUTPUT);
-  pinMode(INDICATOR_DOWN, OUTPUT);
-  pinMode(INDICATOR_LEFT, OUTPUT);
-  pinMode(INDICATOR_RIGHT, OUTPUT);
+    // Actuators
+    pinMode(INDICATOR_UP, OUTPUT);
+    pinMode(INDICATOR_DOWN, OUTPUT);
+    pinMode(INDICATOR_LEFT, OUTPUT);
+    pinMode(INDICATOR_RIGHT, OUTPUT);
 
-  pinMode(IN1, OUTPUT);
-  pinMode(IN2, OUTPUT);
-  pinMode(IN3, OUTPUT);
-  pinMode(IN4, OUTPUT);
-
-  vw_setup(1024);
-  vw_set_rx_pin(DATA_PIN);
-  vw_rx_start();
-
-  // Serial.println("Begin receiving");
-
-  // moveBackward();
+    pinMode(IN1, OUTPUT);
+    pinMode(IN2, OUTPUT);
+    pinMode(IN3, OUTPUT);
+    pinMode(IN4, OUTPUT);
 }
-
 
 void loop()
 {
-  if (vw_get_message(msg, &msgLen))
-  {
-    Serial.println("Received");
-    Packet *receivedPacket = (Packet*)msg;
-    delay(100);
+    while (_radio.hasData())
+    {
+      _radio.readData(&_radioData); // Note how '&' must be placed in front of the variable name.
+      int vx = _radioData.vx;
+      int vy = _radioData.vy;
 
-    int vx = receivedPacket->vx;
-    int vy = receivedPacket->vy;
-    
-    // Serial.println("vx = " + String(vx));
-    // Serial.println("vy = " + String(vy));
-
-    if (abs(vx) > abs(vy)) {
-      if (vx > SIGNIFICANT_MAGNITUDE) {
-        moveBackward();
+      if (abs(vx) > abs(vy)) {
+        if (vx > SIGNIFICANT_MAGNITUDE) {
+          moveBackward();
+        }
+        else if (vx < -SIGNIFICANT_MAGNITUDE) {
+          moveForward();
+        }
+        else {
+          stop();
+        }
       }
-      else if (vx < -SIGNIFICANT_MAGNITUDE) {
-        moveForward();
-      }
-      else {
-        stop();
-      }
-    }
-    else  {
-      if (vy > SIGNIFICANT_MAGNITUDE) {
-        moveLeft();
-      }
-      else if (vy < -SIGNIFICANT_MAGNITUDE) {
-        moveRight();
+      else  {
+        if (vy > SIGNIFICANT_MAGNITUDE) {
+          moveLeft();
+        }
+        else if (vy < -SIGNIFICANT_MAGNITUDE) {
+          moveRight();
+        }   
+        else {
+          stop();
+        }  
       }   
-      else {
-        stop();
-      }  
-    }   
-
-  }
+    }
 }
