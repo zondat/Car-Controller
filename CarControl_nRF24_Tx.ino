@@ -28,8 +28,8 @@ int offsetY = 0;
 int nbSamples = 100;
 void calib() {
   for (int i=0; i<nbSamples; i++) {
-    offsetX += analogRead(PIN_VX);
-    offsetY += analogRead(PIN_VY);
+    offsetX += analogRead(PIN_VX) - ADC_MAX/2;
+    offsetY += analogRead(PIN_VY) - ADC_MAX/2;
   }
   offsetX = offsetX / nbSamples;
   offsetY = offsetY / nbSamples;
@@ -66,5 +66,5 @@ void loop()
   
     if (_radio.send(DESTINATION_RADIO_ID, &_radioData, sizeof(_radioData))) Serial.println("Message sent");
 
-    delay(100);
+    delay(1000);
 }
