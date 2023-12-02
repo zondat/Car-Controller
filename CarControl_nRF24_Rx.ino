@@ -27,8 +27,8 @@ const static uint8_t PIN_RADIO_CSN = 10;
 // Message definition
 struct RadioPacket // Any packet up to 32 bytes can be sent.
 {
-    uint8_t vx;
-    uint8_t vy;
+    int16_t vx;
+    int16_t vy;
 };
 
 NRFLite _radio;
@@ -157,15 +157,18 @@ void loop()
     {
       Serial.println("Received message");
       _radio.readData(&_radioData); // Note how '&' must be placed in front of the variable name.
-      int vx = _radioData.vx;
-      int vy = _radioData.vy;
+      int16_t vx = _radioData.vx;
+      int16_t vy = _radioData.vy;
+
+      Serial.println("Vx: " + String(vx));
+      Serial.println("Vy: " + String(vy));
 
       if (abs(vx) > abs(vy)) {
         if (vx > SIGNIFICANT_MAGNITUDE) {
-          moveBackward();
+          moveForward();
         }
         else if (vx < -SIGNIFICANT_MAGNITUDE) {
-          moveForward();
+          moveBackward();
         }
         else {
           stop();
